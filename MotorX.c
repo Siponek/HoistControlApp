@@ -22,14 +22,14 @@ void yellow()
 
 void reset()
 {
-    fflush(stdin);
+    //fflush(stdin);
     printf("\x1b[0m");
     fflush(stdout);
 }
 
 void createPipe(char *pipeName)
 {
-    if (mkfifo("/tmp/myfifo", 0777) == -1)
+    if (mkfifo(pipeName, 0777) == -1)
     {
 
         if (errno != EEXIST)
@@ -48,7 +48,8 @@ void createPipe(char *pipeName)
 
 }
 
-int openPipe(char *pipeName)
+//returns a fileDescriptor for named pipe
+int openPipeRead(char *pipeName)
 {
     int fileDescriptor = open(pipeName, O_RDONLY);
     if (fileDescriptor >= 0)
@@ -62,60 +63,71 @@ int openPipe(char *pipeName)
     }
 }
 
-// void writeToPipe(char *pipe, char *moveSize)
-// {
-//     int fileDescriptor = openPipe(pipe);
-//     write(fileDescriptor, moveSize, strlen(moveSize) + 1);
-//     close(fileDescriptor);
-//     return NULL;
-// }
 
-void writeToPipe(char *motorSymbol, char *moveSize)
+//returns a fileDescriptor for named pipe
+int openPipeWrite(char *pipeName)
 {
-    // char pipeName[6];
-    // strcpy(&pipeName, 'PIPE_');
-    // strcat(&pipeName, &motorSymbol);
+    int fileDescriptor = open(pipeName, O_WRONLY);
+    if (fileDescriptor >= 0)
+    {
+        return fileDescriptor;
+    }
+    else
+    {
+        printf("Could not open FIFO file\n");
+        exit(0);
+    }
+}
 
-    int fileDescriptor = openPipe(motorSymbol);
+
+int writeToPipe(char *pipe, char *moveSize)
+{
+    int fileDescriptor = openPipeWrite(pipe);
     write(fileDescriptor, moveSize, strlen(moveSize) + 1);
     close(fileDescriptor);
+    return fileDescriptor;
+
 }
+
+int readFromPipe(char *pipe, char *moveSize)
+{
+    int fileDescriptor = openPipeRead(pipe);
+    read(fileDescriptor, moveSize, strlen(moveSize) + 1);
+    close(fileDescriptor);
+    return fileDescriptor;
+}
+
 
 int main(int argc, char const *argv[])
 {
     char *pipeX = "x";
-    char messageParentString[80];
+    char messageParentString[100];
     int messageParent;
-    char format_string[80] = "%d%d%d%d%d";
+    char format_string[100] = "%d";
 
     printf("Creaing Pipe\n");
     createPipe(pipeX);
     int fd1;
     int n1, n2, n3;
     printf("Opening Pipe\n");
-
-    fd1 = openPipe(pipeX);
-    printf("Creaing Pipe\n");
-    int readError = read(fd1, messageParentString, 80);
-    close(fd1);
-
-    // printf(stdin);
-    // printf(stdout);
-
-
-    printf("Read error is %d\n", readError);
-    sscanf(messageParentString, format_string, &n1, &n2, &n3);
-    printf(" strlen(messageParentString) is %d\n", strlen(messageParentString));
-
-
-    printf("The messageParentString is %d and %d and %d\n", n1, n2, n3);
-
-
-
-
+    while(1)
+    {
+      // if (readFromPipe(pipeX, messageParentString) == - 1)
+      if ( read(openPipeRead(pipeX), messageParentString, strlen(messageParentString) + 1) == - 1)
+      {
+        printf("Reading from pipe failed!\n");
+        return 10;
+      }
+      else
+      {
+        printf("READING FROM PIPE SUCCESS\n");
+      }
+      sscanf(messageParentString, format_string, &n1);
+      printf(" strlen(messageParentString) is %ld\n", strlen(messageParentString));
+      printf("The messageParentString is %d and\n", n1);
+    }
     /*fd[0] is for READ, fd[1] is for WRITE*/
     // mkfifo("myfifo1", 0777); // A classic mkfifo
-
     /*Waiting for ALL CHILD processes to finish*/
 
     return 0;
