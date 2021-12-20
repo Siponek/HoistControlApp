@@ -94,36 +94,69 @@ void closePipe(int fileDescriptor)
 float readmessageFromPipe(int fileDescriptor)
 {
     float message;
+    int readCode;
+    readCode = read(fileDescriptor, &message, sizeof(message));
 
-    if (read(fileDescriptor, &message, sizeof(message)) == -1)
+    printf("readCode -> %d and message is recieved\n", readCode);
+
+    if (readCode == -1)
     {
-        printf("Could not from pipe for userCONSOLE. Error -> %d\n", errno);
-
-        exit(-31);
+        if (errno == EAGAIN)
+        {
+            printf("Pipe is empty\n");
+            return 0;
+        }
+        else
+        {
+            printf("Could not read from pipe for the userCONSOLE. Error -> %d\n", errno);
+            fflush(stdout);
+            exit(-31);
+        }
     }
     return message;
 }
 
+int openPipeUserMaster(const char *path)
+{
+    int fileDescriptor;
+    fileDescriptor = open(path, O_RDONLY);
+
+    if (fileDescriptor == -1)
+    {
+        printf("Could not open FIFO file\n");
+        exit(3);
+    }
+    return fileDescriptor;
+}
+
 int main(int argc, char const *argv[])
 {
+    system("clear");
+
     printf("UserConsole running...\n");
     srand((unsigned)time(NULL));
 
     /*fd[0] is for READ, fd[1] is for WRITE*/
     // mkfifo("myfifo1", 0777); // A classic mkfifo
-    int fileDescriptorX = open("communication/motorProcessConsole_X", O_RDONLY);
-    if (fileDescriptorX == -1)
-    {
-        printf("Could not open FIFO file X\n");
-        exit(3);
-    }
 
-    int fileDescriptorZ = open("communication/motorProcessConsole_Z", O_RDONLY);
-    if (fileDescriptorZ == -1)
+    int fileDescriptorX;
+    fileDescriptorX = openPipeUserMaster("communication/motorProcessConsole_X");
+
+    int fileDescriptorZ;
+    fileDescriptorZ = openPipeUserMaster("communication/motorProcessConsole_Z");
+
+    //*Stoping cucking the goddamn pipe!
+    if (fcntl(fileDescriptorX, F_SETFL, O_NONBLOCK) == -1)
     {
-        printf("Could not open FIFO file Z\n");
-        exit(4);
-    }
+        printf("Error witch fcntl\n");
+        exit(40);
+    };
+    if (fcntl(fileDescriptorZ, F_SETFL, O_NONBLOCK) == -1)
+    {
+        printf("Error witch fcntl\n");
+        exit(41);
+    };
+
     printf("Pipes opened...\n");
 
     float currentStateX = 0;
@@ -135,17 +168,22 @@ int main(int argc, char const *argv[])
 
     while (1)
     {
+        system("clear");
         randomError = (float)rand() / (RAND_MAX);
+
+        printf("Console: Reading from MotorX\n");
         messageX = readmessageFromPipe(fileDescriptorX);
         fflush(stdout);
+        printf("Console: Done1\n");
 
+        printf("Console: Reading from MotorZ\n");
         messageZ = readmessageFromPipe(fileDescriptorZ);
         fflush(stdout);
+        printf("Console: Done2\n");
 
         currentStateX += messageX;
         currentStateZ += messageZ;
 
-        system("clear");
         red();
         printf("Current state of the hoist:\n");
         printf("Current random error: %f\n", randomError);
@@ -155,8 +193,12 @@ int main(int argc, char const *argv[])
         printf("X: %f\n", currentStateX - randomError);
         printf("Z: %f\n", currentStateZ - randomError);
         reset();
-        usleep(100);
+        usleep(500000);
     }
+
+    closePipe(fileDescriptorX);
+    closePipe(fileDescriptorZ);
+
     /*Waiting for ALL CHILD processes to finish*/
 
     return 0;

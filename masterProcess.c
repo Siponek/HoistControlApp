@@ -185,6 +185,7 @@ int main(int argc, char const *argv[])
 
         while (1)
         {
+            printf("Child: MotorX reading form Master\n");
 
             read(fileDescriptorXMaster, &speed, sizeof(speed));
             red();
@@ -225,10 +226,11 @@ int main(int argc, char const *argv[])
 
             while (1)
             {
-
+                printf("Child: MotorZ reading form Master\n");
                 read(fileDescriptor, &speed, sizeof(speed));
+
                 red();
-                printf("Process MZ: Z speed -> %f m/s \n", speed);
+                printf("Child: MotorZ speed -> %f m/s \n", speed);
                 reset();
                 sendToMotor(fileDescriptorZConsole, speed);
             }
@@ -279,27 +281,27 @@ int main(int argc, char const *argv[])
                 userControl = getchar();
                 // printf("Terminal ready:\n");
 
-                system("clear");
+                // system("clear");
 
                 if (userControl == (int)'a')
                 {
                     printf("You typed in %c !\n", userControl);
-                    sendToMotor(fileDescriptorX, 10);
+                    sendToMotor(fileDescriptorX, (float)10);
                 }
                 else if (userControl == (int)'d')
                 {
                     printf("You typed in %c !\n", userControl);
-                    sendToMotor(fileDescriptorX, -10);
+                    sendToMotor(fileDescriptorX, (float)-10);
                 }
                 else if (userControl == (int)'w')
                 {
                     printf("You typed in %c !\n", userControl);
-                    sendToMotor(fileDescriptorZ, 20);
+                    sendToMotor(fileDescriptorZ, (float)20);
                 }
                 else if (userControl == (int)'s')
                 {
                     printf("You typed in %c !\n", userControl);
-                    sendToMotor(fileDescriptorZ, -20);
+                    sendToMotor(fileDescriptorZ, (float)-20);
                 }
             }
 
