@@ -91,6 +91,56 @@ void closePipe(int fileDescriptor)
     }
 }
 
+//*loggingIN
+void logging(int fileDescriptor, char *string)
+{
+    // get current time
+    time_t realTime;
+    struct tm *timeLog;
+
+    char *currentTime = malloc(sizeof(timeLog));
+    time(&realTime);
+    timeLog = localtime(&realTime);
+
+    sprintf(currentTime,
+            "[%d-%d-%d %d:%d:%d]",
+            timeLog->tm_mday,
+            1 + timeLog->tm_mon,
+            1900 + timeLog->tm_year,
+            timeLog->tm_hour,
+            timeLog->tm_min,
+            timeLog->tm_sec);
+
+    // locking the file
+    flock(fileDescriptor, LOCK_EX);
+    if (dprintf(fileDescriptor, "%s %s\n", currentTime, string) < 0)
+    {
+        printf("Log: Cannot write to log. errno : %d\n", errno);
+        fflush(stdout);
+        perror(errno);
+        exit(-50);
+    }
+    flock(fileDescriptor, LOCK_UN);
+}
+
+//*Creating log file
+// opens info log
+int logFileCreate()
+{
+    int fileDescriptor;
+
+    fileDescriptor = open("logs/logging.log", O_CREAT | O_APPEND | O_WRONLY, 0777);
+    if (fileDescriptor == -1)
+    {
+        printf("Error while creating a log file. Errno -> %d \n", errno);
+        fflush(stdout);
+        perror("logFileCreate()\n");
+        exit(-51);
+    }
+
+    return fileDescriptor;
+}
+
 float readmessageFromPipe(int fileDescriptor)
 {
     float message;
@@ -110,6 +160,8 @@ float readmessageFromPipe(int fileDescriptor)
         {
             printf("Could not read from pipe for the userCONSOLE. Error -> %d\n", errno);
             fflush(stdout);
+            perror("readmessageFromPipe()\n");
+
             exit(-31);
         }
     }
@@ -136,7 +188,7 @@ int main(int argc, char const *argv[])
     printf("UserConsole running...\n");
     srand((unsigned)time(NULL));
 
-    /*fd[0] is for READ, fd[1] is for WRITE*/
+    /*fileDescriptor[0] is for READ, fileDescriptor[1] is for WRITE*/
     // mkfifo("myfifo1", 0777); // A classic mkfifo
 
     int fileDescriptorX;
@@ -193,7 +245,7 @@ int main(int argc, char const *argv[])
         printf("X: %f\n", currentStateX - randomError);
         printf("Z: %f\n", currentStateZ - randomError);
         reset();
-        usleep(500000);
+        usleep(100000);
     }
 
     closePipe(fileDescriptorX);
