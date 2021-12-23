@@ -1,17 +1,17 @@
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <signal.h>
-#include <math.h>
-#include <time.h>
-#include <errno.h>
-#include <string.h>
+#include <sys/types.h> //
+#include <sys/wait.h>  //
+#include <sys/stat.h>  //
+#include <sys/file.h>
+#include <stdio.h>   //
+#include <stdlib.h>  //
+#include <unistd.h>  //
+#include <signal.h>  //
+#include <fcntl.h>   //
+#include <errno.h>   //
+#include <string.h>  //
+#include <time.h>    //
+#include <math.h>    //
+#include <termios.h> //
 
 void red()
 {
@@ -33,7 +33,7 @@ void reset()
 void makeFolder(char *dirname)
 {
     int check;
-    system("clear");
+    // system("clear");
     check = mkdir(dirname, 0777);
 
     // check if directory is created or not
@@ -55,7 +55,8 @@ char *motorToConsoleFifo(char *nameMotorAxis)
 {
     int fileDescriptor;
     makeFolder("communication");
-    char pipeMotor[40] = "communication/motorProcessConsole_";
+    char *pipeMotor = malloc(40);
+    pipeMotor = "communication/motorProcessConsole_";
     strcat(pipeMotor, nameMotorAxis);
 
     printf("This is pipemotor after strcat_s ->  %s\n", pipeMotor);
@@ -117,7 +118,7 @@ void logging(int fileDescriptor, char *string)
     {
         printf("Log: Cannot write to log. errno : %d\n", errno);
         fflush(stdout);
-        perror(errno);
+        perror("This is the error: ");
         exit(-50);
     }
     flock(fileDescriptor, LOCK_UN);
@@ -168,10 +169,29 @@ float readmessageFromPipe(int fileDescriptor)
     return message;
 }
 
+// int openPipeUserMaster(const char *path)
+// {
+//     int fileDescriptor;
+//     char motorProcessPath[50];
+//     strcat(motorProcessPath, "communication//motorProcessConsole_X");
+//     printf("Przed open, to jest motorProcessPath: %s\n", motorProcessPath);
+//     fileDescriptor = open("./communication/motorProcessConsole_X\0", O_RDONLY);
+
+//     printf("Po open\n fileDescriptor to %d", fileDescriptor);
+
+//     if (fileDescriptor == -1)
+//     {
+//         printf("Could not open FIFO file\n");
+//         perror("This is the error");
+//         exit(3);
+//     }
+//     return fileDescriptor;
+// }
+
 int openPipeUserMaster(const char *path)
 {
     int fileDescriptor;
-    fileDescriptor = open(path, O_RDONLY);
+    fileDescriptor = open(path, O_RDONLY | O_NONBLOCK);
 
     if (fileDescriptor == -1)
     {
@@ -183,7 +203,22 @@ int openPipeUserMaster(const char *path)
 
 int main(int argc, char const *argv[])
 {
-    system("clear");
+
+    // int fileDescriptor;
+    // fileDescriptor = open("communication/motorProcess_X", O_RDONLY | O_NONBLOCK);
+
+    // printf("Po open\n fileDescriptor to %d", fileDescriptor);
+
+    // if (fileDescriptor == -1)
+    // {
+    //     printf("Could not open FIFO file\n");
+    //     perror("This is the error");
+    //     exit(3);
+    // }
+
+    // return 0;
+
+    // system("clear");
 
     printf("UserConsole running...\n");
     srand((unsigned)time(NULL));
@@ -196,18 +231,18 @@ int main(int argc, char const *argv[])
 
     int fileDescriptorZ;
     fileDescriptorZ = openPipeUserMaster("communication/motorProcessConsole_Z");
-
+    printf("Pipes opened!\n");
     //*Stoping cucking the goddamn pipe!
-    if (fcntl(fileDescriptorX, F_SETFL, O_NONBLOCK) == -1)
-    {
-        printf("Error witch fcntl\n");
-        exit(40);
-    };
-    if (fcntl(fileDescriptorZ, F_SETFL, O_NONBLOCK) == -1)
-    {
-        printf("Error witch fcntl\n");
-        exit(41);
-    };
+    // if (fcntl(fileDescriptorX, F_SETFL, O_NONBLOCK) == -1)
+    // {
+    //     printf("Error witch fcntl\n");
+    //     exit(40);
+    // };
+    // if (fcntl(fileDescriptorZ, F_SETFL, O_NONBLOCK) == -1)
+    // {
+    //     printf("Error witch fcntl\n");
+    //     exit(41);
+    // };
 
     printf("Pipes opened...\n");
 
@@ -221,7 +256,6 @@ int main(int argc, char const *argv[])
     while (1)
     {
         system("clear");
-        randomError = (float)rand() / (RAND_MAX);
 
         printf("Console: Reading from MotorX\n");
         messageX = readmessageFromPipe(fileDescriptorX);
@@ -242,8 +276,8 @@ int main(int argc, char const *argv[])
 
         yellow();
         // if ()
-        printf("X: %f\n", currentStateX - randomError);
-        printf("Z: %f\n", currentStateZ - randomError);
+        printf("X: %f\n", currentStateX);
+        printf("Z: %f\n", currentStateZ);
         reset();
         usleep(100000);
     }

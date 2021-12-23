@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,6 +12,10 @@
 #include <time.h>
 #include <math.h>
 #include <termios.h>
+
+//! Variables to change with signals
+
+float resetSpeed = 0;
 
 void red()
 {
@@ -33,7 +38,7 @@ void reset()
 void makeFolder(char *dirname)
 {
     int check;
-    system("clear");
+    // system("clear");
     check = mkdir(dirname, 0777);
 
     // check if directory is created or not
@@ -54,6 +59,8 @@ void makeFolder(char *dirname)
 // fills out preallocated CHAR ARRAY[40]
 void masterToMotor(char *buf, char *nameMotorAxis)
 {
+    printf("Creating fifo files for masterToMotor...\n");
+
     int fileDescriptor;
     makeFolder("communication");
     char pipeMotor[40] = "communication/motorProcess_";
@@ -85,14 +92,17 @@ void masterToMotor(char *buf, char *nameMotorAxis)
     }
 }
 
+// Function to append a char to a path for file
 void motorToConsole(char *buf, char *nameMotorAxis)
 {
+    printf("Creating fifo files for motorToConsole...\n");
+
     int fileDescriptor;
     makeFolder("communication");
     char pipeMotor[40] = "communication/motorProcessConsole_";
     strcat(pipeMotor, nameMotorAxis);
 
-    printf("This is pipemotor after strcat_s ->  %s\n", pipeMotor);
+    printf("This is pipemotorConsole after strcat_s ->  %s\n", pipeMotor);
 
     if (mkfifo(pipeMotor, 0777) == -1)
     {
@@ -128,6 +138,7 @@ void sendToMotor(int fileDescriptor, float speed)
         // writeErrorLog(fileDescriptorlog_err, "command.h: commandMotor write failed");
         exit(-20);
     }
+    fflush(stdout);
 }
 
 void closePipe(int fileDescriptor)
@@ -165,7 +176,7 @@ void logWrite(int fileDescriptor, char *string)
     {
         printf("Log: Cannot write to log. errno : %d\n", errno);
         fflush(stdout);
-        perror(errno);
+        perror("My error: ");
         exit(-50);
     }
     flock(fileDescriptor, LOCK_UN);
@@ -206,6 +217,122 @@ int logErrorFileCreate()
     return fileDescriptor;
 }
 
+void sigHandlerReset(int signum)
+{
+
+    // Return type of the handler function should be void
+    printf("\nMotors registered a RESET button\n");
+    resetSpeed = 0;
+}
+
+void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
+{
+    //*Motor process
+    logWrite(fileDescriptorLog, "Child Motor: Start\n;");
+    srand((unsigned)time(NULL));
+    float currentError = 0;
+    float currentState = 0;
+    float speed;
+    char motorProcessPath[50] = "communication/motorProcess_";
+    char motorProcessConsolePath[50] = "communication/motorProcess_";
+    char helperChar[2];
+    int randomness;
+
+    helperChar[0] = axis;
+    helperChar[1] = '\0';
+
+    strcat(motorProcessPath, helperChar);
+    strcat(motorProcessConsolePath, helperChar);
+
+    printf("motorProcessPath to : %s\n", motorProcessPath);
+    printf("motorProcessConsolePath to : %s\n", motorProcessConsolePath);
+
+    // printf("Child: Fifo master->child file location: %s\n", motorProcessPath);
+    // printf("Child: Fifo child-userConsole file location: %s\n", motorProcessPath);
+    printf("Child: %c Opening a pipe masterToChild\n", axis);
+
+    int fileDescriptorMaster = open(motorProcessPath, O_RDONLY);
+    if (fileDescriptorMaster == -1)
+    {
+        printf("Could not open FIFO master-child file\n");
+        perror("My error: ");
+
+        exit(4);
+    }
+
+    printf("Child: %c Opening a pipe childToConsole\n", axis);
+
+    int fileDescriptorConsole = open(motorProcessConsolePath, O_WRONLY);
+    if (fileDescriptorConsole == -1)
+    {
+        printf("Could not open FIFO console file\n");
+        perror("My error: ");
+
+        exit(3);
+    }
+
+    printf("Setting up a non blocking pipe...\n");
+
+    if (fcntl(fileDescriptorMaster, F_SETFL, O_NONBLOCK) == -1)
+    {
+        printf("Error witch fcntl\n");
+        exit(42);
+    };
+
+    while (1)
+    {
+
+        // printf("Child: Motor%c reading form Master\n", axis);
+        currentError = ((float)rand() / (RAND_MAX)) / 10;
+        randomness = rand() % 10;
+        if (read(fileDescriptorMaster, &speed, sizeof(speed)) == -1)
+        {
+            if (errno == EAGAIN)
+            {
+                printf("Pipe is empty\n");
+            }
+            else
+            {
+                printf("Could not read FIFO file\n");
+                logWrite(fileDescriptorErrorLog, "Motor: Could not open WR FIFO file\n");
+                perror("My error: ");
+
+                exit(3);
+            }
+        }
+        randomness = rand() % 10;
+        if (randomness >= 5)
+        {
+            currentState = speed + currentError;
+        }
+        else
+        {
+            currentState = speed - currentError;
+        }
+
+        // to allow to pass the next if(), if the signal is detected then the fucntion
+        // changes resetSpeed to 0 and resets the engine
+        printf("Child: Motor%c speed -> %f m/s \n", axis, currentState);
+        resetSpeed = currentState;
+
+        signal(SIGUSR1, sigHandlerReset);
+
+        if (currentState == resetSpeed)
+        {
+            red();
+            reset();
+            sendToMotor(fileDescriptorConsole, currentState);
+        }
+        else
+        {
+            printf("Child: Motor%c RESET\n", axis);
+            sendToMotor(fileDescriptorConsole, resetSpeed);
+        }
+        usleep(400000);
+    }
+    close(fileDescriptorMaster);
+}
+
 int main(int argc, char const *argv[])
 {
     // sending data to motors
@@ -214,7 +341,10 @@ int main(int argc, char const *argv[])
     int fileDescriptorErrorLog;
     char motorPathX[40];
     char motorPathZ[40];
+
+    printf("Created masterToMotor\n");
     masterToMotor(motorPathX, "X");
+    printf("Created masterToMotor\n");
     masterToMotor(motorPathZ, "Z");
 
     char motorConsoleX[40];
@@ -229,69 +359,29 @@ int main(int argc, char const *argv[])
 
     logWrite(fileDescriptorLog, "Master: Start\n;");
 
-    // int r = strcat(pipeMotor, motorSymbol);
+    // // int r = strcat(pipeMotor, motorSymbol);
     pid_t pidMotorX = fork();
     if (pidMotorX == -1)
     {
         printf("Failed to fork\n");
         logWrite(fileDescriptorErrorLog, "Master: Failed to fork()\n");
-        perror(errno);
+        perror("The error is: ");
         return 10;
     }
 
-    // MotorX process
-    // TODO Rewrite motors to hold the current state
-    // TODO Motors reset on "T" and stop on "G"
-    // TODO Watchdog PIDs
-    // TODO
-
-    // TODO Instalation Package
+    // // MotorX process
+    // // TODO Rewrite motors to hold the current state = done
+    // // TODO Motors reset on "T" and stop on "G"
+    // // TODO Watchdog PIDs
+    // // TODO
+    // // TODO Instalation Package
 
     if (pidMotorX == 0)
     {
-        //*Child process code
-        logWrite(fileDescriptorLog, "Child MotorX: Start\n;");
-
-        float speed;
-        int fileDescriptorXMaster = open("communication/motorProcess_X", O_RDONLY);
-
-        if (fileDescriptorXMaster == -1)
-        {
-            printf("Could not open FIFO file\n");
-            logWrite(fileDescriptorErrorLog, "MotorX: Could not open RD FIFO file\n");
-
-            exit(4);
-        }
-
-        int fileDescriptorXConsole = open("communication/motorProcessConsole_X", O_WRONLY);
-        if (fileDescriptorXConsole == -1)
-        {
-            printf("Could not open FIFO file\n");
-            logWrite(fileDescriptorErrorLog, "MotorX: Could not open WR FIFO file\n");
-
-            exit(3);
-        }
-
-        while (1)
-        {
-            printf("Child: MotorX reading form Master\n");
-
-            if (read(fileDescriptorXMaster, &speed, sizeof(speed)) == -1)
-            {
-                printf("Could not read FIFO file\n");
-                logWrite(fileDescriptorErrorLog, "MotorX: Could not open WR FIFO file\n");
-                perror(errno);
-                exit(3);
-            }
-            red();
-            printf("Process MX: MotorX speed -> %f m/s \n", speed);
-            logWrite(fileDescriptorLog, "MotorX: Message recievied\n");
-
-            reset();
-            sendToMotor(fileDescriptorXConsole, speed);
-        }
-        closePipe(fileDescriptorXMaster);
-        closePipe(fileDescriptorXConsole);
+        yellow();
+        printf("Child: MotorX running...\n");
+        reset();
+        motorProcess('X', fileDescriptorErrorLog, fileDescriptorLog);
     }
     else
     {
@@ -305,52 +395,16 @@ int main(int argc, char const *argv[])
         }
         if (pidMotorZ == 0)
         {
-            //*MotorZ process
-            logWrite(fileDescriptorLog, "Child MotorX: Start\n;");
-
-            float speed;
-            int fileDescriptorMaster = open("communication/motorProcess_Z", O_RDONLY);
-            if (fileDescriptorMaster == -1)
-            {
-                printf("Could not open FIFO master-child file\n");
-                perror(errno);
-
-                exit(4);
-            }
-
-            int fileDescriptorZConsole = open("communication/motorProcessConsole_Z", O_WRONLY);
-            if (fileDescriptorZConsole == -1)
-            {
-                printf("Could not open FIFO console file\n");
-                perror(errno);
-                exit(3);
-            }
-
-            while (1)
-            {
-                printf("Child: MotorZ reading form Master\n");
-                if (read(fileDescriptorMaster, &speed, sizeof(speed)) == -1)
-                {
-                    printf("Could not read FIFO file\n");
-                    logWrite(fileDescriptorErrorLog, "MotorZ: Could not open WR FIFO file\n");
-                    perror(errno);
-                    exit(3);
-                }
-
-                red();
-                printf("Child: MotorZ speed -> %f m/s \n", speed);
-                reset();
-                sendToMotor(fileDescriptorZConsole, speed);
-            }
-            close(fileDescriptorMaster);
+            yellow();
+            printf("Child: MotorZ running...\n");
+            reset();
+            motorProcess('Z', fileDescriptorErrorLog, fileDescriptorLog);
         }
-
         else
         {
             //! PARENT
-
             yellow();
-            printf("W - Moving in Z axis UP\nS - Moving in Z axis DOWN\nA - Moving in X axis LEFT\nD - moving in X axis RIGHT\n");
+            printf("Parent: Running...\n");
             reset();
 
             // TODO RAW TERMINAL MODE
@@ -370,6 +424,10 @@ int main(int argc, char const *argv[])
 
             tcsetattr(STDIN_FILENO, TCSANOW, &newTerminal);
 
+            yellow();
+            printf("Parent: Console set to cannonical mode...\n");
+            reset();
+
             int fileDescriptorX = open("communication/motorProcess_X", O_WRONLY);
             if (fileDescriptorX == -1)
             {
@@ -385,8 +443,12 @@ int main(int argc, char const *argv[])
             }
             while (1)
             {
-                // system("clear");
-                printf("Waiting for input\n");
+                fflush(stdin);
+                system("clear");
+                yellow();
+                printf("W - Moving in Z axis UP\nS - Moving in Z axis DOWN\nA - Moving in X axis LEFT\nD - moving in X axis RIGHT\n");
+                reset();
+                printf("Parent: Waiting for input\n");
                 userControl = getchar();
                 // printf("Terminal ready:\n");
 
@@ -414,6 +476,25 @@ int main(int argc, char const *argv[])
                     sendToMotor(fileDescriptorZ, (float)-20);
                     logWrite(fileDescriptorLog, "Master: Z--\n");
                 }
+                else if (userControl == (int)'t')
+                {
+                    red();
+                    printf("You typed in %c , THE RESET BUTTON!\n", userControl);
+                    reset();
+
+                    // sendToMotor(fileDescriptorZ, (float)0);
+                    // sendToMotor(fileDescriptorX, (float)0);
+                    kill(pidMotorZ, SIGUSR1);
+                    kill(pidMotorX, SIGUSR1);
+
+                    logWrite(fileDescriptorLog, "Master: RESET BUTTON\n");
+                }
+                else
+                {
+                    printf("Waiting for input...\n");
+                }
+
+                usleep(100000);
             }
 
             // pid_t processID = fork();
@@ -426,7 +507,7 @@ int main(int argc, char const *argv[])
                 ;
         }
     }
-    // getting file descriptors for fifo files in communication folder
+    // // getting file descriptors for fifo files in communication folder
 
-    return 0;
+    // return 0;
 }

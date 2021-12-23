@@ -9,9 +9,9 @@
         ""
       ],
       "stopAtEntry": false,
-      "cwd": "c:/Users/szink/OneDrive/Pulpit/Studia/ARP/TestForAssignment1",
+      "cwd": "/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app",
       "environment": [],
-      "program": "c:/Users/szink/OneDrive/Pulpit/Studia/ARP/TestForAssignment1/build/Debug/outDebug",
+      "program": "/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/Debug/outDebug",
       "internalConsoleOptions": "openOnSessionStart",
       "MIMode": "gdb",
       "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
