@@ -51,12 +51,43 @@ void makeFolder(char *dirname)
     }
 }
 
-char *motorToConsoleFifo(char *nameMotorAxis)
+void consoleFifo(char axis)
 {
+    float currentError = 0;
+    float currentState = 0;
+    float speed;
+    char motorProcessConsolePath[50] = "communication/motorProcess_";
+    char helperChar[2];
+
+    helperChar[0] = axis;
+    helperChar[1] = '\0';
+
+    strcat(motorProcessConsolePath, helperChar);
+
+    printf("motorProcessConsolePath to : %s\n", motorProcessConsolePath);
+
+    // printf("Child: Fifo master->child file location: %s\n", motorProcessPath);
+    // printf("Child: Fifo child-userConsole file location: %s\n", motorProcessPath);
+
+    printf("Child: %c Opening a pipe childToConsole\n", axis);
+
+    int fileDescriptorConsole = open(motorProcessConsolePath, O_RDONLY);
+    if (fileDescriptorConsole == -1)
+    {
+        printf("Could not open FIFO console file\n");
+        perror("My error: ");
+
+        exit(3);
+    }
+}
+
+void masterToMotor(char *buf, char *nameMotorAxis)
+{
+    printf("Creating fifo files for masterToMotor...\n");
+
     int fileDescriptor;
     makeFolder("communication");
-    char *pipeMotor = malloc(40);
-    pipeMotor = "communication/motorProcessConsole_";
+    char pipeMotor[40] = "communication/motorProcess_";
     strcat(pipeMotor, nameMotorAxis);
 
     printf("This is pipemotor after strcat_s ->  %s\n", pipeMotor);
@@ -78,7 +109,11 @@ char *motorToConsoleFifo(char *nameMotorAxis)
     printf("MKFIFO for motor '%s' created\n", nameMotorAxis);
     reset();
 
-    return pipeMotor;
+    // adding return for path
+    for (int i = 0; i < strlen(pipeMotor); ++i)
+    {
+        buf[i] = i;
+    }
 }
 
 // Closes the pipe
@@ -148,7 +183,7 @@ float readmessageFromPipe(int fileDescriptor)
     int readCode;
     readCode = read(fileDescriptor, &message, sizeof(message));
 
-    printf("readCode -> %d and message is recieved\n", readCode);
+    printf("readCode -> %d and message is recieved", readCode);
 
     if (readCode == -1)
     {
@@ -196,42 +231,42 @@ int openPipeUserMaster(const char *path)
     if (fileDescriptor == -1)
     {
         printf("Could not open FIFO file\n");
+        perror("The error with opening a pipe\n");
         exit(3);
     }
+    printf("Pipe opened\n");
+
     return fileDescriptor;
 }
 
 int main(int argc, char const *argv[])
 {
-
-    // int fileDescriptor;
-    // fileDescriptor = open("communication/motorProcess_X", O_RDONLY | O_NONBLOCK);
-
-    // printf("Po open\n fileDescriptor to %d", fileDescriptor);
-
-    // if (fileDescriptor == -1)
-    // {
-    //     printf("Could not open FIFO file\n");
-    //     perror("This is the error");
-    //     exit(3);
-    // }
-
-    // return 0;
-
-    // system("clear");
+    float currentStateX = 0;
+    float currentStateZ = 0;
+    float randomError;
+    // float randomError = (rand() % 1000) / 100000;
+    float messageX;
+    float messageZ;
+    int fileDescriptorZ;
+    int fileDescriptorX;
 
     printf("UserConsole running...\n");
+
     srand((unsigned)time(NULL));
 
     /*fileDescriptor[0] is for READ, fileDescriptor[1] is for WRITE*/
     // mkfifo("myfifo1", 0777); // A classic mkfifo
+    printf("Making a FIFO X\n");
 
-    int fileDescriptorX;
+    printf("Making a FIFO Z\n");
+
+    printf("Opening a pipe1 Main\n");
     fileDescriptorX = openPipeUserMaster("communication/motorProcessConsole_X");
 
-    int fileDescriptorZ;
+    printf("Opening a pipe2 Main\n");
     fileDescriptorZ = openPipeUserMaster("communication/motorProcessConsole_Z");
     printf("Pipes opened!\n");
+
     //*Stoping cucking the goddamn pipe!
     // if (fcntl(fileDescriptorX, F_SETFL, O_NONBLOCK) == -1)
     // {
@@ -245,13 +280,6 @@ int main(int argc, char const *argv[])
     // };
 
     printf("Pipes opened...\n");
-
-    float currentStateX = 0;
-    float currentStateZ = 0;
-    float randomError;
-    // float randomError = (rand() % 1000) / 100000;
-    float messageX;
-    float messageZ;
 
     while (1)
     {
@@ -279,7 +307,7 @@ int main(int argc, char const *argv[])
         printf("X: %f\n", currentStateX);
         printf("Z: %f\n", currentStateZ);
         reset();
-        usleep(100000);
+        usleep(50000);
     }
 
     closePipe(fileDescriptorX);

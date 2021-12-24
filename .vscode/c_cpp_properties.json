@@ -2,9 +2,12 @@
   "configurations": [
     {
       "name": "linux-gcc-x64",
-      "includePath": [
-        "${workspaceFolder}/**"
-      ],
+      "includePath": [],
+      "browse": {
+        "path": [
+          "C:\\Users\\szink\\OneDrive\\Pulpit\\Studia\\ARP\\AssignmentOneSZ\\HoistControl_app\\functionsFile.h"
+        ]
+      },
       "compilerPath": "C:/msys64/mingw64/bin/gcc.exe",
       "cStandard": "${default}",
       "cppStandard": "${default}",
