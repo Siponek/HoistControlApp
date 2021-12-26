@@ -14,6 +14,7 @@
 #include <time.h>
 #include <math.h>
 #include <termios.h>
+#include <string.h>
 
 #define true 1
 #define false 0
@@ -38,7 +39,7 @@ pid_t readPID(char *pipeName, int fileDescriptorErrorLog)
     pid_t pid;
 
     // (ignore "file already exists", errno 17)
-    if (mkfifo(pipeName, 0666) == -1 && errno != 17)
+    if (mkfifo(pipeName, 0777) == -1 && errno != 17)
     {
         printf("Error %d in ", errno);
         fflush(stdout);
@@ -213,6 +214,7 @@ void logWrite(int fileDescriptor, char *string)
     flock(fileDescriptor, LOCK_UN);
 }
 
+// *This function creates a FIFO file with specified PID of the process
 void watchdogPID_Write(char *pipeName, int state, int fileDescriptorErrorLog)
 {
     int fileDescriptor;
@@ -227,6 +229,44 @@ void watchdogPID_Write(char *pipeName, int state, int fileDescriptorErrorLog)
     }
     printf("Opening a watchdog pipe!\n");
     fileDescriptor = open(pipeName, O_WRONLY);
+    if (fileDescriptor == -1)
+    {
+        fflush(stdout);
+        perror("Problem with opening a pipe for watchdogPID");
+        logWrite(fileDescriptorErrorLog, "watchdogPID_Write -> failed to open a fifo file");
+        exit(-62);
+    }
+    printf("Writing to a watchdog pipe!\n");
+
+    if (write(fileDescriptor, &processID, sizeof(processID)) == -1)
+    {
+        fflush(stdout);
+        perror("Problem with writing to a pipe for watchdogPID");
+        logWrite(fileDescriptorErrorLog, "watchdogPID_Write -> failed to write into a fifo file");
+        exit(-63);
+    }
+
+    if (state)
+    {
+        if (close(fileDescriptor) == -1)
+        {
+            fflush(stdout);
+            perror("Problem with closing a pipe for watchdogPID");
+
+            logWrite(fileDescriptorErrorLog, "watchdogPID_Write -> failed to close a fifo file");
+            exit(-64);
+        }
+    }
+}
+
+void watchdogPIDT_txt(char *pipeName, int state, int fileDescriptorErrorLog)
+{
+    int fileDescriptor;
+    pid_t processID = getpid();
+
+    printf("Opening/creating a watchdog .txt file!\n");
+    fileDescriptor = open(pipeName, O_CREAT | O_APPEND | O_WRONLY, 0777);
+
     if (fileDescriptor == -1)
     {
         fflush(stdout);

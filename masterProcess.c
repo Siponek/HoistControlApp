@@ -7,13 +7,12 @@ int fileDescriptorLog;
 int fileDescriptorErrorLog;
 extern float resetSpeed;
 
-
 #include "functionsFile.h"
 
 void sigHandlerReset(int signum);
 void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog);
 void sendToMotor(int fileDescriptor, float speed);
-
+void writeToTXT(char axis);
 
 // void makeFolder(char *dirname);
 // void masterToMotor(char *buf, char *nameMotorAxis);
@@ -69,7 +68,7 @@ int main(int argc, char const *argv[])
 
     if (pidMotorX == 0)
     {
-
+        writeToTXT('X');
         watchdogPID_Write("communication/pid_MotorX", false, fileDescriptorErrorLog);
         yellow();
         printf("Child: MotorX running...\n");
@@ -92,6 +91,8 @@ int main(int argc, char const *argv[])
         }
         if (pidMotorZ == 0)
         {
+            writeToTXT('Z');
+
             printf("ChildZ: Writing PID to watchdog\n");
 
             watchdogPID_Write("communication/pid_MotorZ", false, fileDescriptorErrorLog);
@@ -221,12 +222,14 @@ int main(int argc, char const *argv[])
 
 void sigHandlerReset(int signum)
 {
+    if (signum = SIGUSR1)
+    { // Return type of the handler function should be void
+        printf("\nMotors registered a RESET button\n");
 
-    // Return type of the handler function should be void
-    printf("\nMotors registered a RESET button\n");
-    resetSpeed = 0;
+        printf("Child: Motor RESET\n");
+        sendToMotor(fileDescriptorConsole, 0);
+    }
 }
-
 
 void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
 {
@@ -274,18 +277,12 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
         exit(3);
     }
 
-    // printf("Setting up a non blocking pipe...\n");
-
-    // if (fcntl(fileDescriptorMaster, F_SETFL, O_NONBLOCK) == -1)
-    // {
-    //     printf("Error witch fcntl\n");
-    //     exit(42);
-    // };
-
     while (1)
     {
 
-        // printf("Child: Motor%c reading form Master\n", axis);
+        // printf("Child: Motor%c reading form Master\n", axis);\
+
+        //*A random error with motor process
         currentError = ((float)rand() / (RAND_MAX)) / 10;
         randomness = rand() % 10;
         if (read(fileDescriptorMaster, &speed, sizeof(speed)) == -1)
@@ -303,6 +300,7 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
                 exit(3);
             }
         }
+
         randomness = rand() % 10;
         if (randomness >= 5)
         {
@@ -319,18 +317,18 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
         resetSpeed = currentState;
 
         signal(SIGUSR1, sigHandlerReset);
+        printf("currentState -> %f\n", currentState);
+        printf("resetSpeed -> %f\n", resetSpeed);
 
         if (currentState == resetSpeed)
         {
-            red();
-            reset();
             sendToMotor(fileDescriptorConsole, currentState);
         }
-        else
-        {
-            printf("Child: Motor%c RESET\n", axis);
-            sendToMotor(fileDescriptorConsole, resetSpeed);
-        }
+        // else
+        // {
+        //     printf("Child: Motor%c RESET\n", axis);
+        //     sendToMotor(fileDescriptorConsole, resetSpeed);
+        // }
         usleep(400000);
     }
     close(fileDescriptorMaster);
@@ -346,4 +344,21 @@ void sendToMotor(int fileDescriptor, float speed)
         exit(-20);
     }
     fflush(stdout);
+}
+
+void writeToTXT(char axis)
+{
+    makeFolder("tmp");
+    pid_t pidOfMotor = getpid();
+    char helperChar[2];
+    helperChar[0] = axis;
+    helperChar[1] = '\0';
+    char txtFilePath[20] = "tmp/PID_motor_";
+    strcat(txtFilePath, helperChar);
+
+    FILE *fp = fopen(txtFilePath, "w+");
+    char pidOfMotorString[100];
+    sprintf(pidOfMotorString, "%d", pidOfMotor);
+    fputs(pidOfMotorString, fp);
+    fclose(fp);
 }

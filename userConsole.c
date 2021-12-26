@@ -1,55 +1,4 @@
-#include <sys/types.h> //
-#include <sys/wait.h>  //
-#include <sys/stat.h>  //
-#include <sys/file.h>
-#include <stdio.h>   //
-#include <stdlib.h>  //
-#include <unistd.h>  //
-#include <signal.h>  //
-#include <fcntl.h>   //
-#include <errno.h>   //
-#include <string.h>  //
-#include <time.h>    //
-#include <math.h>    //
-#include <termios.h> //
-
-void red()
-{
-    printf("\x1b[1;31m");
-}
-
-void yellow()
-{
-    printf("\033[1;33m");
-}
-
-void reset()
-{
-    fflush(stdin);
-    printf("\x1b[0m");
-    fflush(stdout);
-}
-
-void makeFolder(char *dirname)
-{
-    int check;
-    // system("clear");
-    check = mkdir(dirname, 0777);
-
-    // check if directory is created or not
-    if (!check)
-        printf("Directory %s created\n", dirname);
-    else if (errno != EEXIST)
-    {
-        printf("Could not create directory %s : %d\n", dirname, errno);
-        exit(0);
-    }
-    else
-    {
-        // TODO there is no MKFIFO directory, you should use [dirname] parameter ==DONE
-        printf("FIFO %s directory already exists, running on...\n", dirname);
-    }
-}
+#include "functionsFile.h"
 
 void consoleFifo(char axis)
 {
@@ -81,101 +30,8 @@ void consoleFifo(char axis)
     }
 }
 
-void masterToMotor(char *buf, char *nameMotorAxis)
-{
-    printf("Creating fifo files for masterToMotor...\n");
-
-    int fileDescriptor;
-    makeFolder("communication");
-    char pipeMotor[40] = "communication/motorProcess_";
-    strcat(pipeMotor, nameMotorAxis);
-
-    printf("This is pipemotor after strcat_s ->  %s\n", pipeMotor);
-
-    if (mkfifo(pipeMotor, 0777) == -1)
-    {
-
-        if (errno != EEXIST)
-        {
-            printf("Could not create FIFO file: %d\n", errno);
-            exit(2);
-        }
-        else
-        {
-            printf("MKFIFO %s file  already exists, running on...\n", pipeMotor);
-        }
-    }
-    yellow();
-    printf("MKFIFO for motor '%s' created\n", nameMotorAxis);
-    reset();
-
-    // adding return for path
-    for (int i = 0; i < strlen(pipeMotor); ++i)
-    {
-        buf[i] = i;
-    }
-}
-
-// Closes the pipe
-void closePipe(int fileDescriptor)
-{
-    if (close(fileDescriptor) == -1)
-    {
-        printf("Could not close pipe for userCONSOLE. Error -> %d\n", errno);
-
-        exit(-21);
-    }
-}
-
-//*loggingIN
-void logging(int fileDescriptor, char *string)
-{
-    // get current time
-    time_t realTime;
-    struct tm *timeLog;
-
-    char *currentTime = malloc(sizeof(timeLog));
-    time(&realTime);
-    timeLog = localtime(&realTime);
-
-    sprintf(currentTime,
-            "[%d-%d-%d %d:%d:%d]",
-            timeLog->tm_mday,
-            1 + timeLog->tm_mon,
-            1900 + timeLog->tm_year,
-            timeLog->tm_hour,
-            timeLog->tm_min,
-            timeLog->tm_sec);
-
-    // locking the file
-    flock(fileDescriptor, LOCK_EX);
-    if (dprintf(fileDescriptor, "%s %s\n", currentTime, string) < 0)
-    {
-        printf("Log: Cannot write to log. errno : %d\n", errno);
-        fflush(stdout);
-        perror("This is the error: ");
-        exit(-50);
-    }
-    flock(fileDescriptor, LOCK_UN);
-}
-
 //*Creating log file
 // opens info log
-int logFileCreate()
-{
-    int fileDescriptor;
-
-    fileDescriptor = open("logs/logging.log", O_CREAT | O_APPEND | O_WRONLY, 0777);
-    if (fileDescriptor == -1)
-    {
-        printf("Error while creating a log file. Errno -> %d \n", errno);
-        fflush(stdout);
-        perror("logFileCreate()\n");
-        exit(-51);
-    }
-
-    return fileDescriptor;
-}
 
 float readmessageFromPipe(int fileDescriptor)
 {
@@ -239,8 +95,55 @@ int openPipeUserMaster(const char *path)
     return fileDescriptor;
 }
 
+void signalHandlerForRESET(int signum)
+{
+    char PID_motorX_str[255];
+    char PID_motorZ_str[255];
+
+    printf("Przed File open!");
+
+    FILE *fp_motorX = fopen("./tmp/PID_motor_X", "r");
+    if(fp_motorX == NULL)
+   {
+      printf("Error! X");    // TODO
+      exit(1);             
+   }
+    FILE *fp_motorZ = fopen("./tmp/PID_motor_Z", "r");
+
+if(fp_motorX == NULL)
+   {
+      printf("Error! Z");   // TODO
+      exit(1);             
+   }
+
+    printf("Przed F GETS!");
+    fgets(PID_motorX_str, 255, (FILE *)fp_motorX);
+    fgets(PID_motorZ_str, 255, (FILE *)fp_motorZ);
+    printf("PO F GETS!");
+
+    fclose(fp_motorX);
+    fclose(fp_motorZ);
+
+    pid_t PID_motorX = atoi(PID_motorX_str);
+    pid_t PID_motorZ = atoi(PID_motorZ_str);
+    printf("Przed PID OF MOTOR!");
+
+    printf("PID of motor X %d", PID_motorX); // TODO REMOVE
+    printf("PID of motor Z %d", PID_motorZ); // TODO REMOVE
+
+    if (signum == SIGUSR2)
+    {
+        // TODO R button, reset
+        kill(PID_motorX, SIGUSR1);
+        kill(PID_motorZ, SIGUSR1);
+    }
+}
+
+// This is hte "Inspection console" from assignment
 int main(int argc, char const *argv[])
 {
+    printf("Przed signal");
+
     float currentStateX = 0;
     float currentStateZ = 0;
     float randomError;
@@ -249,10 +152,59 @@ int main(int argc, char const *argv[])
     float messageZ;
     int fileDescriptorZ;
     int fileDescriptorX;
+    int fileDescriptorLog;
+    int fileDescriptorErrorLog;
+    pid_t watchDogPID;
+
+    fileDescriptorLog = logFileCreate();
+    fileDescriptorErrorLog = logErrorFileCreate();
+    srand((unsigned)time(NULL));
+
+    pid_t childConsole = fork();
+
+    if (childConsole == -1)
+    {
+
+        printf("Failed to fork\n");
+        return 11;
+    }
+
+    //*CHILD CONSOLE PROCESS FOR REGISTERING INPUT
+    if (childConsole == 0)
+    {
+        struct termios oldTerminal;
+        struct termios newTerminal;
+        // CANNONICAL TERMINAL
+        tcgetattr(STDIN_FILENO, &oldTerminal);
+        memcpy(&newTerminal, &oldTerminal, sizeof(struct termios));
+        newTerminal.c_cc[VTIME] = 0;
+        newTerminal.c_cc[VMIN] = 1;
+        // bitwise AND assignment to set all flasgs at once || enable canonical input, enable echo
+        newTerminal.c_lflag &= ~(ECHO | ICANON);
+        // newTerminal.c_lflag &= ~(ICANON);
+
+        tcsetattr(STDIN_FILENO, TCSANOW, &newTerminal);
+        int userInput;
+        while (1)
+        {
+            userInput = getchar();
+            if (userInput == (int)'r')
+            {
+                printf("You typed in %c !\n", userInput);
+                logWrite(fileDescriptorLog, "userConsole: RESET BUTTON PRESSED\n");
+                // kill(getppid(), SIGUSR2);
+                signalHandlerForRESET(SIGUSR2);
+            }
+            if (userInput == (int)'x')
+            {
+                printf("You typed in %c !\n", userInput);
+                logWrite(fileDescriptorLog, "userConsole: watned to close terminal\n");
+                exit(111);
+            }
+        }
+    }
 
     printf("UserConsole running...\n");
-
-    srand((unsigned)time(NULL));
 
     /*fileDescriptor[0] is for READ, fileDescriptor[1] is for WRITE*/
     // mkfifo("myfifo1", 0777); // A classic mkfifo
@@ -280,11 +232,12 @@ int main(int argc, char const *argv[])
     // };
 
     printf("Pipes opened...\n");
+    watchDogPID = readPID("communication/pid_WATCHDOG", fileDescriptorErrorLog);
 
     while (1)
     {
         system("clear");
-
+        signal(SIGUSR2, signalHandlerForRESET);
         printf("Console: Reading from MotorX\n");
         messageX = readmessageFromPipe(fileDescriptorX);
         fflush(stdout);
@@ -301,12 +254,17 @@ int main(int argc, char const *argv[])
         red();
         printf("Current state of the hoist:\n");
         printf("Current random error: %f\n", randomError);
-
         yellow();
         // if ()
         printf("X: %f\n", currentStateX);
         printf("Z: %f\n", currentStateZ);
         reset();
+        printf("Sending a signal to watchdog!\n");
+        printf("This is my PID! -> %d\n", getpid());
+
+        // for testing (sending PID with signals)
+        // kill(watchDogPID, SIGUSR1);
+
         usleep(50000);
     }
 
