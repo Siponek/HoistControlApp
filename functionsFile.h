@@ -19,156 +19,69 @@
 #define true 1
 #define false 0
 
+void configTerminal();
 void red();
 void yellow();
 void reset();
 void makeFolder(char *dirname);
-void masterToMotor(char *buf, char *nameMotorAxis);
+void createFIFO(char *nameMotorAxis);
 void motorToConsole(char *buf, char *nameMotorAxis);
 void closePipe(int fileDescriptor);
 void logWrite(int fileDescriptor, char *string);
 void watchdogPID_Write(char *pipeName, int state, int fileDescriptorErrorLog);
-int logFileCreate();
+int createFile();
 int logErrorFileCreate();
-pid_t readPID(char *pipeName, int fileDescriptorErrorLog);
-// making folder for fifo
+void writeCurrentProcessPIDToFile(char *path);
+pid_t readProcessPIDFromFile(char *path);
 
-pid_t readPID(char *pipeName, int fileDescriptorErrorLog)
+/// Eliminate need for "enter" etc while inputting
+void configTerminal()
 {
-    int fileDescriptor;
-    pid_t pid;
+    struct termios oldTerminal;
+    struct termios newTerminal;
 
-    // (ignore "file already exists", errno 17)
-    if (mkfifo(pipeName, 0777) == -1 && errno != 17)
-    {
-        printf("Error %d in ", errno);
-        fflush(stdout);
-        perror("functionsFile.h readPID mkfifo");
-        logWrite(fileDescriptorErrorLog, "functionsFile.h: readPID mkfifo failed");
-        exit(-1);
-    }
+    tcgetattr(STDIN_FILENO, &oldTerminal);
+    memcpy(&newTerminal, &oldTerminal, sizeof(struct termios));
+    newTerminal.c_cc[VTIME] = 0;
+    newTerminal.c_cc[VMIN] = 1;
+    // bitwise AND assignment to set all flasgs at once || enable canonical input, enable echo
+    newTerminal.c_lflag &= ~(ECHO | ICANON);
+    // newTerminal.c_lflag &= ~(ICANON);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newTerminal);
 
-    fileDescriptor = open(pipeName, O_RDONLY);
-    if (fileDescriptor == -1)
-    {
-        printf("Error %d in ", errno);
-        fflush(stdout);
-        perror("functionsFile.h readPID open");
-        logWrite(fileDescriptorErrorLog, "functionsFile.h: readPID open failed");
-        exit(-1);
-    }
-
-    if (read(fileDescriptor, &pid, sizeof(pid)) == -1)
-    {
-        printf("Error %d in ", errno);
-        fflush(stdout);
-        perror("functionsFile.h readPID read");
-        logWrite(fileDescriptorErrorLog, "functionsFile.h: readPID read failed");
-        exit(-1);
-    }
-
-    if (close(fileDescriptor) == -1)
-    {
-        printf("Error %d in ", errno);
-        fflush(stdout);
-        perror("functionsFile.h readPID close");
-        logWrite(fileDescriptorErrorLog, "functionsFile.h: readPID close failed");
-        exit(-1);
-    }
-
-    return pid;
+    yellow();
+    printf("Parent: Console set to cannonical mode...\n");
+    reset();
 }
 
 void makeFolder(char *dirname)
 {
-    int check;
-    // system("clear");
-    check = mkdir(dirname, 0777);
+    int result = mkdir(dirname, 0777);
 
-    // check if directory is created or not
-    if (!check)
-        printf("Directory %s created\n", dirname);
-    else if (errno != EEXIST)
+    if (result == 0 || errno == EEXIST) // TODO remove dir if exists and then create
     {
-        printf("Could not create directory %s : %d\n", dirname, errno);
-        exit(0);
+        printf("Directory '%s' created\n", dirname);
     }
     else
     {
-        // TODO there is no MKFIFO directory, you should use [dirname] parameter ==DONE
-        printf("FIFO %s directory already exists, running on...\n", dirname);
+        printf("Could not create directory %s : %d\n Exiting...\n", dirname, errno);
+        exit(0);
     }
 }
 
 // fills out preallocated CHAR ARRAY[40]
-void masterToMotor(char *buf, char *nameMotorAxis)
+void createFIFO(char *pipePath)
 {
-    printf("Creating fifo files for masterToMotor...\n");
+    printf("Creating FIFO: '%s'\n", pipePath);
 
-    int fileDescriptor;
-    makeFolder("communication");
-    char pipeMotor[40] = "communication/motorProcess_";
-    strcat(pipeMotor, nameMotorAxis);
-
-    printf("This is pipemotor after strcat_s ->  %s\n", pipeMotor);
-
-    if (mkfifo(pipeMotor, 0777) == -1)
+    if (mkfifo(pipePath, 0777) == 0 || errno == EEXIST)
     {
-
-        if (errno != EEXIST)
-        {
-            printf("Could not create FIFO file: %d\n", errno);
-            exit(2);
-        }
-        else
-        {
-            printf("MKFIFO %s file  already exists, running on...\n", pipeMotor);
-        }
+        printf("FIFO '%s' has been created.\n", pipePath);
     }
-    yellow();
-    printf("MKFIFO for motor '%s' created\n", nameMotorAxis);
-    reset();
-
-    // adding return for path
-    for (int i = 0; i < strlen(pipeMotor); ++i)
+    else
     {
-        buf[i] = i;
-    }
-}
-
-// Function to append a char to a path for file
-void motorToConsole(char *buf, char *nameMotorAxis)
-{
-    printf("Creating fifo files for motorToConsole...\n");
-
-    int fileDescriptor;
-    makeFolder("communication");
-    char pipeMotor[40] = "communication/motorProcessConsole_";
-    strcat(pipeMotor, nameMotorAxis);
-
-    printf("This is pipemotorConsole after strcat_s ->  %s\n", pipeMotor);
-
-    if (mkfifo(pipeMotor, 0777) == -1)
-    {
-
-        if (errno != EEXIST)
-        {
-            printf("Could not create FIFO file: %d\n", errno);
-            exit(2);
-        }
-        else
-        {
-            printf("MKFIFO %s file  already exists, running on...\n", pipeMotor);
-        }
-    }
-    yellow();
-    printf("MKFIFO for motor '%s' created\n", nameMotorAxis);
-    reset();
-
-    // adding return for path
-    for (int i = 0; i < strlen(pipeMotor); ++i)
-    {
-        buf[i] = i;
+        printf("Could not create FIFO file `%s`: %d\n Exiting...\n", pipePath, errno);
+        exit(1);
     }
 }
 
@@ -181,6 +94,36 @@ void closePipe(int fileDescriptor)
 
         exit(-21);
     }
+}
+
+void writeCurrentProcessPIDToFile(char *path)
+{
+    pid_t pidOfMotor = getpid();
+
+    FILE *fp = fopen(path, "w+");
+    char pidOfMotorString[100];
+    sprintf(pidOfMotorString, "%d", pidOfMotor);
+    fputs(pidOfMotorString, fp);
+    fclose(fp);
+}
+
+pid_t readProcessPIDFromFile(char *path)
+{
+    char PID_str[255];
+
+    FILE *fp = fopen(path, "r");
+    if (fp == NULL)
+    {
+        printf("Error! X"); // TODO
+        exit(1);
+    }
+
+    fgets(PID_str, 255, (FILE *)fp);
+
+    fclose(fp);
+
+    pid_t pid = atoi(PID_str);
+    return pid;
 }
 
 void logWrite(int fileDescriptor, char *string)
@@ -206,10 +149,8 @@ void logWrite(int fileDescriptor, char *string)
     flock(fileDescriptor, LOCK_EX);
     if (dprintf(fileDescriptor, "%s %s\n", currentTime, string) < 0)
     {
-        printf("Log: Cannot write to log. errno : %d\n", errno);
-        fflush(stdout);
-        perror("My error: ");
-        exit(-50);
+        printf("Log: Cannot write to log. Errno : %d\n", errno);
+        exit(1);
     }
     flock(fileDescriptor, LOCK_UN);
 }
@@ -297,39 +238,20 @@ void watchdogPIDT_txt(char *pipeName, int state, int fileDescriptorErrorLog)
     }
 }
 
-//*Creating log file
-// opens info log
-int logFileCreate()
+int createFile(char *path)
 {
-    int fileDescriptor;
-    fileDescriptor = open("logs/logs.txt", O_CREAT | O_APPEND | O_WRONLY, 0777);
+    int fileDescriptor = open(path, O_CREAT | O_APPEND | O_WRONLY, 0777);
 
     if (fileDescriptor == -1)
     {
-        printf("Error while creating a log file. Errno -> %d \n", errno);
-        fflush(stdout);
-        perror("logFileCreate()\n");
-        exit(-51);
+        printf("Error while creating a file '%s'. Errno -> %d \n Exiting...\n", path, errno);
+        exit(1);
     }
-    printf("logFileCreate -> %d \n", fileDescriptor);
-
-    return fileDescriptor;
-}
-
-int logErrorFileCreate()
-{
-    int fileDescriptor;
-    fileDescriptor = open("logs/errorsLogs.txt", O_CREAT | O_APPEND | O_WRONLY, 0777);
-    if (fileDescriptor == -1)
+    else
     {
-        printf("Error while creating an error log file. Errno -> %d \n", errno);
-        fflush(stdout);
-        perror("logErrorFileCreate()\n");
-        exit(-52);
+        printf("File `%s` has been created.\n", path);
+        return fileDescriptor;
     }
-    printf("logErrorFileCreate -> %d \n", fileDescriptor);
-
-    return fileDescriptor;
 }
 
 void red()

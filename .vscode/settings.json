@@ -16,8 +16,10 @@
   "C_Cpp_Runner.enableWarnings": true,
   "C_Cpp_Runner.warningsAsError": false,
   "files.associations": {
+    "*.arb": "json",
     "stdio.h": "c",
     "stdlib.h": "c",
-    "functionsfile.h": "c"
+    "functionsfile.h": "c",
+    "cstdio": "c"
   }
 }

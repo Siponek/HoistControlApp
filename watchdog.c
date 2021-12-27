@@ -1,8 +1,9 @@
 #include "functionsFile.h"
 
-#define watchdogTime 60
+#define timeThreshold 10
 #define True 1
 #define False 0
+
 pid_t pid_userConsole;
 int fileDescriptorLog;
 int fileDescriptorErrorLog;
@@ -15,45 +16,32 @@ void get_pid(int sig, siginfo_t *info, void *context);
 
 int main(int argc, char const *argv[])
 {
+    time_t lastTimeMotorXResponded = time(NULL);
+    time_t lastTimeMotorZResponded = time(NULL);
+    time_t lastTimeMasterResponded = time(NULL);
+    time_t lastTimeUserConsoleResponded = time(NULL);
 
-    char *pipeNameInspector = "communication/PID_inspector";
-    int aliveMotorX;
-    int aliveMotorZ;
-    int aliveMaster;
-    int aliveUserConsole;
+    fileDescriptorLog = createFile("logs/logs.txt");
+    fileDescriptorErrorLog = createFile("logs/errorsLogs.txt");
 
-    // timming
-    time_t secondsMotorX = time(NULL);
-    time_t secondsMotorZ = time(NULL);
-    time_t secondsMaster = time(NULL);
-    time_t secondsUserConsole = time(NULL);
-    time_t timeThreshold = 30;
-    time_t currentTime;
+    // watchdogPID_Write("communication/pid_WATCHDOG", 0, fileDescriptorErrorLog);
 
-    fileDescriptorLog = logFileCreate();
-    // closePipe(fileDescriptorLog);
-    fileDescriptorErrorLog = logErrorFileCreate();
+    pid_t MotorX = readProcessPIDFromFile("./tmp/PID_motor_X");
+    pid_t MotorZ = readProcessPIDFromFile("./tmp/PID_motor_Z");
+    pid_t masterProcess = readProcessPIDFromFile("./tmp/PID_masterProcess");
+    pid_t userConsole = readProcessPIDFromFile("./tmp/PID_userConsole");
 
-    pid_t MotorX;
-    pid_t MotorZ;
-    pid_t masterProcess;
-    pid_t userConsole;
-    printf("Watchdoing writing its PID to a file...:\n");
-    watchdogPID_Write("communication/pid_WATCHDOG", 0, fileDescriptorErrorLog);
-
-    MotorX = readPID("communication/pid_MotorX", fileDescriptorErrorLog);
-    MotorZ = readPID("communication/pid_MotorZ", fileDescriptorErrorLog);
-    masterProcess = readPID("communication/pid_masterProcess", fileDescriptorErrorLog);
-    // userConsole = readPID("communication/pid_userConsole", fileDescriptorErrorLog);
-
+    // TODO remove prints below
     printf("PIDs have been read:\n");
     printf("MotorX %d\n", MotorX);
     printf("MotorZ %d\n", MotorZ);
     printf("masterProcess %d\n", masterProcess);
-    // printf("userConsole %d\n", userConsole);
+    printf("userConsole %d\n", userConsole);
+
     struct sigaction sa;
     printf("Watchdog is now waiting for signals and printing them below:\n");
 
+    time_t currentTime;
     while (1)
     {
         printf("PID from void getpid() %d", getpid()); // display PID for kill()
@@ -66,27 +54,27 @@ int main(int argc, char const *argv[])
         // A set of IF statments checking if a signal has been recieved and reseting a waiting time for process to respond
         if (signalPid == MotorX)
         {
-            secondsMotorX = time(NULL);
+            lastTimeMotorXResponded = time(NULL);
         }
         else if (signalPid == MotorZ)
         {
-            secondsMotorZ = time(NULL);
+            lastTimeMotorZResponded = time(NULL);
         }
         else if (signalPid == masterProcess)
         {
-            secondsMaster = time(NULL);
+            lastTimeMasterResponded = time(NULL);
         }
         else if (signalPid == userConsole)
         {
-            secondsUserConsole = time(NULL);
+            lastTimeUserConsoleResponded = time(NULL);
         }
 
         currentTime = time(NULL);
 
-        if (currentTime - secondsMotorX >= timeThreshold &&
-            currentTime - secondsMotorZ >= timeThreshold &&
-            currentTime - secondsMaster >= timeThreshold &&
-            currentTime - secondsMotorX >= timeThreshold)
+        if (currentTime - lastTimeMotorXResponded >= timeThreshold &&
+            currentTime - lastTimeMotorZResponded >= timeThreshold &&
+            currentTime - lastTimeMasterResponded >= timeThreshold &&
+            currentTime - lastTimeMotorXResponded >= timeThreshold)
         {
             //* this is sending a signal to reset all of the required programs
             printf("watchdog reset userConsole");
