@@ -11,14 +11,17 @@ extern float resetSpeed;
 
 pid_t createMotorProcess(char axis);
 // void sigHandlerReset(int signum);
-void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog);
+void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, pid_t watchdogPID);
+
 void sendToMotor(int fileDescriptor, float speed);
 
 int main(int argc, char const *argv[])
 {
+    // Directory for log files.
     makeFolder("logs");
-    /// Directory for pipes.
+    // Directory for pipes.
     makeFolder("communication");
+    // Directory for tmp files.
     makeFolder("tmp");
 
     fileDescriptorLog = createFile("logs/logs.txt");
@@ -33,6 +36,7 @@ int main(int argc, char const *argv[])
     /// From motors to master communication.
     createFIFO("communication/motorProcessConsole_X");
     createFIFO("communication/motorProcessConsole_Z");
+    pid_t watchdogPID = readProcessPIDFromFile("communication/pid_WATCHDOG");
 
     pid_t pidMotorX = createMotorProcess('X');
     pid_t pidMotorZ = createMotorProcess('Z');
@@ -68,16 +72,21 @@ int main(int argc, char const *argv[])
         printf("Parent: Waiting for input\n");
         userAction = getchar();
 
+        // Seding signal to watchdog
+        kill(watchdogPID, SIGUSR1);
+        logWrite(fileDescriptorLog, "Master: Sending signal to watchdog\n");
+
+        // user intercation with masterProcess
         if (userAction == (int)'a')
         {
             printf("You typed in %c !\n", userAction);
-            sendToMotor(fileDescriptorX, (float)10);
+            sendToMotor(fileDescriptorX, (float)-10);
             logWrite(fileDescriptorLog, "Master: X++\n");
         }
         else if (userAction == (int)'d')
         {
             printf("You typed in %c !\n", userAction);
-            sendToMotor(fileDescriptorX, (float)-10);
+            sendToMotor(fileDescriptorX, (float)10);
             logWrite(fileDescriptorLog, "Master: X--\n");
         }
         else if (userAction == (int)'w')
@@ -92,7 +101,7 @@ int main(int argc, char const *argv[])
             sendToMotor(fileDescriptorZ, (float)-20);
             logWrite(fileDescriptorLog, "Master: Z--\n");
         }
-        else if (userAction == (int)'t')
+        else if (userAction == (int)'r')
         {
             red();
             printf("You typed in %c , THE RESET BUTTON!\n", userAction);
@@ -132,6 +141,7 @@ pid_t createMotorProcess(char axis)
     char helperChar[2];
     helperChar[0] = axis;
     helperChar[1] = '\0';
+    pid_t watchdogPID = readProcessPIDFromFile("communication/pid_WATCHDOG");
 
     strcat(watchdogPIPEPath, helperChar);
 
@@ -140,9 +150,17 @@ pid_t createMotorProcess(char axis)
     if (pidMotor == -1)
     {
         printf("Failed to fork motor process %c\n", axis);
-        logWrite(fileDescriptorErrorLog, "Master: Failed to fork motor process. \n"); // TODO add axis letter
+        if (axis == 'X')
+        {
+            logWrite(fileDescriptorErrorLog, "Master: Failed to fork motorX process. \n"); // // TODO add axis letter
+        }
+        else
+        {
+            logWrite(fileDescriptorErrorLog, "Master: Failed to fork motorZ process. \n"); // // TODO add axis letter
+        }
         exit(1);
     }
+
     else if (pidMotor == 0)
     {
         //! Body of Motor process.
@@ -158,13 +176,20 @@ pid_t createMotorProcess(char axis)
         yellow();
         printf("Child: Motor %c running...\n", axis);
         reset();
-        motorProcess(axis, fileDescriptorErrorLog, fileDescriptorLog);
+        motorProcess(axis, fileDescriptorErrorLog, fileDescriptorLog, watchdogPID);
     }
     else
     {
         // Master process.
         printf("Child%c: Writing PID to watchdog\n", axis);
-        logWrite(fileDescriptorLog, "Master: Created a child Motor\n;"); // TODO add axis letter
+        if (axis == 'X')
+        {
+            logWrite(fileDescriptorLog, "Master: Created a child MotorX\n;"); // // TODO add axis letter !DONE
+        }
+        else
+        {
+            logWrite(fileDescriptorLog, "Master: Created a child MotorZ\n;"); // // TODO add axis letter !DONE
+        }
 
         // So we get an error in that functions, bcs we return a value only here,
         // and not in previous `else` cases. But it's fine, bcs
@@ -184,10 +209,18 @@ pid_t createMotorProcess(char axis)
 //     }
 // }
 
-void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
+void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, int watchdogPID)
 {
-    logWrite(fileDescriptorLog, "Child Motor: Start\n;"); // TODO letter for axis
-    srand((unsigned)time(NULL));                          // Set random seed.
+    if (axis == 'X')
+    {
+        logWrite(fileDescriptorLog, "Child MotorX: Start\n;");
+    }
+    else
+    {
+        logWrite(fileDescriptorLog, "Child MotorZ: Start\n;");
+    }
+    // // TODO letter for axis
+    srand((unsigned)time(NULL)); // Set random seed.
     char motorProcessPath[50] = "communication/motorProcess_";
     char motorProcessConsolePath[50] = "communication/motorProcessConsole_";
     char helperChar[2];
@@ -260,6 +293,8 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog)
         if (currentState == resetSpeed)
         {
             sendToMotor(fileDescriptorConsole, currentState);
+            kill(watchdogPID, SIGUSR1);
+            logWrite(fileDescriptorLog, "Child: Sending signal to watchdog\n");
         }
         usleep(400000);
     }

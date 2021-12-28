@@ -2,7 +2,7 @@
 
 int openPipeUserMaster(const char *path);
 void signalHandlerForRESET(int signum);
-void createProcessForUserInteractions();
+void createProcessForUserInteractions(pid_t watchdogPID); // TODO run this by exec()
 float readMessageFromPipe(int fileDescriptor);
 
 int fileDescriptorLog;
@@ -24,44 +24,63 @@ int main(int argc, char const *argv[])
     // pid_t watchDogPID = readPID("communication/pid_WATCHDOG", fileDescriptorErrorLog); // TODO
 
     writeCurrentProcessPIDToFile("tmp/PID_userConsole");
-
+    pid_t watchdogPID = readProcessPIDFromFile("communication/pid_WATCHDOG");
     float currentStateX = 0;
     float currentStateZ = 0;
     float randomError;
     float messageX;
     float messageZ;
-    while (1)
+    pid_t childProcessInteraction = fork();
+
+    if (childProcessInteraction == -1)
     {
-        system("clear");
-        signal(SIGUSR2, signalHandlerForRESET);
-        printf("Console: Reading from MotorX\n");
-        messageX = readMessageFromPipe(fileDescriptorX);
-        fflush(stdout);
-        printf("Console: Done1\n");
+        printf("Failed to create a fork\n");
+        perror("Error while creating a fork");
+    }
 
-        printf("Console: Reading from MotorZ\n");
-        messageZ = readMessageFromPipe(fileDescriptorZ);
-        fflush(stdout);
-        printf("Console: Done2\n");
+    if (childProcessInteraction == 0)
+    {
+        createProcessForUserInteractions(watchdogPID);
+    }
+    else
+    {
 
-        currentStateX += messageX;
-        currentStateZ += messageZ;
+        while (1)
+        {
+            system("clear");
+            signal(SIGUSR2, signalHandlerForRESET);
+            printf("Console: Reading from MotorX\n");
+            messageX = readMessageFromPipe(fileDescriptorX);
+            fflush(stdout);
+            printf("Console: Done1\n");
 
-        red();
-        // TODO I think you should remove random error value in userConsole.
-        // TODO you are not able to measure it. Currenty it's just a zero all the time.
-        printf("Current random error: %f\n", randomError);
-        yellow();
-        printf("X: %f\n", currentStateX);
-        printf("Z: %f\n", currentStateZ);
-        reset();
-        // printf("Sending a signal to watchdog!\n");
-        printf("This is my PID! -> %d\n", getpid());
+            printf("Console: Reading from MotorZ\n");
+            messageZ = readMessageFromPipe(fileDescriptorZ);
+            fflush(stdout);
+            printf("Console: Done2\n");
 
-        // for testing (sending PID with signals)
-        // kill(watchDogPID, SIGUSR1);
+            currentStateX += messageX;
+            currentStateZ += messageZ;
 
-        usleep(50000);
+            red();
+            // TODO I think you should remove random error value in userConsole.
+            // TODO you are not able to measure it. Currenty it's just a zero all the time.
+            // Random error implemented in motor's Processes
+            // printf("Current random error: %f\n", randomError);
+            yellow();
+            printf("X: %f\n", currentStateX);
+            printf("Z: %f\n", currentStateZ);
+            reset();
+            // printf("Sending a signal to watchdog!\n");
+            kill(watchdogPID, SIGUSR1);
+            logWrite(fileDescriptorLog, "userConsole: Sending signal to watchdog\n");
+            printf("This is my PID! -> %d\n", getpid());
+
+            // for testing (sending PID with signals)
+            // kill(watchDogPID, SIGUSR1);
+
+            usleep(50000);
+        }
     }
 
     closePipe(fileDescriptorX);
@@ -98,7 +117,7 @@ void signalHandlerForRESET(int signum)
 }
 
 /// Child console process for registering user's input.
-void createProcessForUserInteractions()
+void createProcessForUserInteractions(pid_t watchdogPID)
 {
     pid_t childConsole = fork();
 
@@ -116,12 +135,14 @@ void createProcessForUserInteractions()
         while (1)
         {
             userInput = getchar();
+            kill(watchdogPID, SIGUSR1);
+            logWrite(fileDescriptorLog, "Master: Sending signal to watchdog\n");
             if (userInput == (int)'r')
             {
                 printf("You typed in %c !\n", userInput);
                 logWrite(fileDescriptorLog, "userConsole: RESET BUTTON PRESSED\n");
-                // kill(getppid(), SIGUSR2);
-                signalHandlerForRESET(SIGUSR2);
+                kill(getpid(), SIGUSR2);
+                // signalHandlerForRESET(SIGUSR2);
             }
             if (userInput == (int)'x')
             {

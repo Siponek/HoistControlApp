@@ -21,15 +21,25 @@ int main(int argc, char const *argv[])
     time_t lastTimeMasterResponded = time(NULL);
     time_t lastTimeUserConsoleResponded = time(NULL);
 
+    makeFolder("logs");
+    makeFolder("communication");
+    makeFolder("tmp");
+
     fileDescriptorLog = createFile("logs/logs.txt");
     fileDescriptorErrorLog = createFile("logs/errorsLogs.txt");
+
+    watchdogPIDT_txt("communication/pid_WATCHDOG", 0, fileDescriptorErrorLog);
 
     // watchdogPID_Write("communication/pid_WATCHDOG", 0, fileDescriptorErrorLog);
 
     pid_t MotorX = readProcessPIDFromFile("./tmp/PID_motor_X");
+    printf("./tmp/PID_motor_X DONE\n");
     pid_t MotorZ = readProcessPIDFromFile("./tmp/PID_motor_Z");
+    printf("./tmp/PID_motor_Z DONE\n");
     pid_t masterProcess = readProcessPIDFromFile("./tmp/PID_masterProcess");
+    printf("./tmp/PID_masterProcess DONE\n");
     pid_t userConsole = readProcessPIDFromFile("./tmp/PID_userConsole");
+    printf("./tmp/PID_userConsole DONE\n");
 
     // TODO remove prints below
     printf("PIDs have been read:\n");
@@ -111,5 +121,6 @@ int main(int argc, char const *argv[])
 
 void get_pid(int sig, siginfo_t *info, void *context)
 {
+
     signalPid = info->si_pid;
 }

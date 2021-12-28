@@ -33,6 +33,7 @@ int createFile();
 int logErrorFileCreate();
 void writeCurrentProcessPIDToFile(char *path);
 pid_t readProcessPIDFromFile(char *path);
+void watchdogPIDT_txt(char *pipeName, int state, int fileDescriptorErrorLog);
 
 /// Eliminate need for "enter" etc while inputting
 void configTerminal()
@@ -110,11 +111,12 @@ void writeCurrentProcessPIDToFile(char *path)
 pid_t readProcessPIDFromFile(char *path)
 {
     char PID_str[255];
-
+    int PID_int[10];
     FILE *fp = fopen(path, "r");
     if (fp == NULL)
     {
-        printf("Error! X"); // TODO
+        printf("Error! Marcin coś spierdolił\n"); // TODO
+        perror("Error while opening a path with fopen readProcessPIDFromFile");
         exit(1);
     }
 
@@ -245,6 +247,7 @@ int createFile(char *path)
     if (fileDescriptor == -1)
     {
         printf("Error while creating a file '%s'. Errno -> %d \n Exiting...\n", path, errno);
+        perror("Error perror");
         exit(1);
     }
     else
