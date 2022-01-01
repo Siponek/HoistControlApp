@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG  -rdynamic CMakeFiles/masterProcess.dir/masterProcess.c.o  -o masterProcess 

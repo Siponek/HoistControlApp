@@ -5,12 +5,15 @@
 float resetSpeed = 0;
 int fileDescriptorLog;
 int fileDescriptorErrorLog;
+int fileDescriptorConsole;
+int fileDescriptorX;
+int fileDescriptorZ;
 extern float resetSpeed;
 
 #include "functionsFile.h"
 
 pid_t createMotorProcess(char axis);
-// void sigHandlerReset(int signum);
+void sigHandlerReset(int sig);
 void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, pid_t watchdogPID);
 
 void sendToMotor(int fileDescriptor, float speed);
@@ -47,14 +50,14 @@ int main(int argc, char const *argv[])
 
     configTerminal();
 
-    int fileDescriptorX = open("communication/motorProcess_X", O_WRONLY);
+    fileDescriptorX = open("communication/motorProcess_X", O_WRONLY);
     if (fileDescriptorX == -1)
     {
         printf("Could not open FIFO for motor X file\n");
         exit(1);
     }
 
-    int fileDescriptorZ = open("communication/motorProcess_Z", O_WRONLY);
+    fileDescriptorZ = open("communication/motorProcess_Z", O_WRONLY);
     if (fileDescriptorZ == -1)
     {
         printf("Could not open FIFO for motor Z file\n");
@@ -73,7 +76,7 @@ int main(int argc, char const *argv[])
         userAction = getchar();
 
         // Seding signal to watchdog
-        kill(watchdogPID, SIGUSR1);
+        // kill(watchdogPID, SIGUSR1);
         logWrite(fileDescriptorLog, "Master: Sending signal to watchdog\n");
 
         // user intercation with masterProcess
@@ -181,7 +184,7 @@ pid_t createMotorProcess(char axis)
     else
     {
         // Master process.
-        printf("Child%c: Writing PID to watchdog\n", axis);
+        printf("Master: created a child Motor%c\n", axis);
         if (axis == 'X')
         {
             logWrite(fileDescriptorLog, "Master: Created a child MotorX\n;"); // // TODO add axis letter !DONE
@@ -198,16 +201,21 @@ pid_t createMotorProcess(char axis)
     }
 }
 
-// void sigHandlerReset(int signum)
-// {
-//     if (signum = SIGUSR1)
-//     { // Return type of the handler function should be void
-//         printf("\nMotors registered a RESET button\n");
+void sigHandlerReset(int sig)
+{
+    if (sig = SIGUSR1)
+    { // Return type of the handler function should be void
+        printf("\nMotors registered a RESET button\n");
 
-//         printf("Child: Motor RESET\n");
-//         sendToMotor(fileDescriptorConsole, 0);
-//     }
-// }
+        printf("Child: Motor RESET\n");
+        sendToMotor(fileDescriptorConsole, (float)0);
+        // sendToMotor(fileDescriptorX, (float)0);
+        // sendToMotor(fileDescriptorZ, (float)0);
+
+        printf("Child: Testing for signal kill\n");
+        exit(111);
+    }
+}
 
 void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, int watchdogPID)
 {
@@ -242,7 +250,7 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
 
     printf("Child: %c Opening a pipe childToConsole\n", axis);
 
-    int fileDescriptorConsole = open(motorProcessConsolePath, O_WRONLY);
+    fileDescriptorConsole = open(motorProcessConsolePath, O_WRONLY);
     if (fileDescriptorConsole == -1)
     {
         printf("Could not open FIFO console file\n");
@@ -255,6 +263,7 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
     float speed;
     while (1)
     {
+        signal(SIGUSR1, sigHandlerReset); // TODO
 
         //*A random error with motor process.
         currentError = ((float)rand() / (RAND_MAX)) / 10;
@@ -288,8 +297,6 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
         // printf("Child: Motor%c speed -> %f m/s \n", axis, currentState);
         resetSpeed = currentState;
 
-        // signal(SIGUSR1, sigHandlerReset); // TODO
-
         if (currentState == resetSpeed)
         {
             sendToMotor(fileDescriptorConsole, currentState);
@@ -301,6 +308,7 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
     close(fileDescriptorMaster);
 }
 
+// Function used to send speed to motor or userConsole for reading
 void sendToMotor(int fileDescriptor, float speed)
 {
     if (write(fileDescriptor, &speed, sizeof(speed)) == -1)

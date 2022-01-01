@@ -32,7 +32,7 @@ void watchdogPID_Write(char *pipeName, int state, int fileDescriptorErrorLog);
 int createFile();
 int logErrorFileCreate();
 void writeCurrentProcessPIDToFile(char *path);
-pid_t readProcessPIDFromFile(char *path);
+int readProcessPIDFromFile(char *path);
 void watchdogPIDT_txt(char *pipeName, int state, int fileDescriptorErrorLog);
 
 /// Eliminate need for "enter" etc while inputting
@@ -108,20 +108,32 @@ void writeCurrentProcessPIDToFile(char *path)
     fclose(fp);
 }
 
-pid_t readProcessPIDFromFile(char *path)
+int readProcessPIDFromFile(char *path)
 {
     char PID_str[255];
-    int PID_int[10];
+    int PID_int;
     FILE *fp = fopen(path, "r");
-    if (fp == NULL)
+
+    printf("Trying to read PID from a file...\n");
+    while (fp == NULL)
     {
-        printf("Error! Marcin coś spierdolił\n"); // TODO
-        perror("Error while opening a path with fopen readProcessPIDFromFile");
-        exit(1);
+        fp = fopen(path, "r");
+        // printf("Error! Marcin coś spierdolił\n"); // TODO
+        // perror("Error while opening a path with fopen readProcessPIDFromFile");
+        // exit(1);
+        usleep(1000);
+        if (fp != NULL)
+        {
+            printf("Success reading from PIDFILE!\n");
+            break;
+        }
     }
 
+    printf("Success with fgets!\n");
     fgets(PID_str, 255, (FILE *)fp);
+    perror("Error in readFormPID\n");
 
+    printf("Success with fclose!\n");
     fclose(fp);
 
     pid_t pid = atoi(PID_str);
@@ -140,12 +152,12 @@ void logWrite(int fileDescriptor, char *string)
 
     sprintf(currentTime,
             "|%d-%d-%d %d:%d:%d|",
-            timeLog->tm_mday,
-            1 + timeLog->tm_mon,
-            1900 + timeLog->tm_year,
-            timeLog->tm_hour,
-            timeLog->tm_min,
-            timeLog->tm_sec);
+            (unsigned short)timeLog->tm_mday,
+            (unsigned short)1 + timeLog->tm_mon,
+            (unsigned short)1900 + (unsigned short)timeLog->tm_year,
+            (unsigned short)timeLog->tm_hour,
+            (unsigned short)timeLog->tm_min,
+            (unsigned short)timeLog->tm_sec);
 
     // locking the file
     flock(fileDescriptor, LOCK_EX);

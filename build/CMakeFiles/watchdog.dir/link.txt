@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG  -rdynamic CMakeFiles/watchdog.dir/watchdog.c.o  -o watchdog 

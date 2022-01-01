@@ -1,6 +1,6 @@
 #include "functionsFile.h"
 
-#define timeThreshold 10
+#define timeThreshold 60
 #define True 1
 #define False 0
 
@@ -65,18 +65,22 @@ int main(int argc, char const *argv[])
         if (signalPid == MotorX)
         {
             lastTimeMotorXResponded = time(NULL);
+            logWrite(fileDescriptorLog, "Watchdog: Recieved MotorX signal");
         }
         else if (signalPid == MotorZ)
         {
             lastTimeMotorZResponded = time(NULL);
+            logWrite(fileDescriptorLog, "Watchdog: Recieved MotorZ signal");
         }
         else if (signalPid == masterProcess)
         {
             lastTimeMasterResponded = time(NULL);
+            logWrite(fileDescriptorLog, "Watchdog: Recieved masterProcess signal");
         }
         else if (signalPid == userConsole)
         {
             lastTimeUserConsoleResponded = time(NULL);
+            logWrite(fileDescriptorLog, "Watchdog: Recieved userConsole signal");
         }
 
         currentTime = time(NULL);
@@ -88,7 +92,9 @@ int main(int argc, char const *argv[])
         {
             //* this is sending a signal to reset all of the required programs
             printf("watchdog reset userConsole");
-            kill(userConsole, SIGUSR2);
+            logWrite(fileDescriptorLog, "Watchdog: Reseting processes");
+
+            // kill(userConsole, SIGUSR2);
         }
     }
     /*fd[0] is for READ, fd[1] is for WRITE*/

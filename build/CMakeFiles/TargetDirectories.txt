@@ -1,0 +1,5 @@
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/CMakeFiles/rebuild_cache.dir
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/CMakeFiles/userConsole.dir
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/CMakeFiles/watchdog.dir
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/CMakeFiles/edit_cache.dir
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/build/CMakeFiles/masterProcess.dir

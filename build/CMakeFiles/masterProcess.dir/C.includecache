@@ -1,0 +1,44 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/functionsFile.h
+sys/types.h
+-
+sys/wait.h
+-
+sys/stat.h
+-
+sys/file.h
+-
+stdio.h
+-
+stdlib.h
+-
+unistd.h
+-
+signal.h
+-
+fcntl.h
+-
+errno.h
+-
+string.h
+-
+time.h
+-
+math.h
+-
+termios.h
+-
+string.h
+-
+
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/masterProcess.c
+functionsFile.h
+/home/siponek/Desktop/Pulpit/Studia/ARP/AssignmentOneSZ/HoistControl_app/functionsFile.h
+

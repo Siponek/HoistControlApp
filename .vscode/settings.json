@@ -20,6 +20,7 @@
     "stdio.h": "c",
     "stdlib.h": "c",
     "functionsfile.h": "c",
-    "cstdio": "c"
+    "cstdio": "c",
+    "math.h": "c"
   }
 }
