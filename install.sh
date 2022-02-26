@@ -1,10 +1,20 @@
 #!/bin/bash
 echo "Installer by Szymon Zinkowicz / Maciej Bogdalski"
+echo "Reminder: unziping the archive ANYWHERE where this script is running else might result in an error"
+if [ -z "$1" ]
+    then
+    echo "No argument supplied"
+    unzip {sources.zip}
+
+    else
+    echo "Given <pathname>: $1";
+    unzip -d $1 {sources.zip}
+fi
+
 echo "Instalation in progess..."
-# make bin/ directory for executables
-mkdir bin
+# make bin/ directory for binaries
 # compile source files 
-#  output executables
+#  output binaries
 #   linking math library
 gcc src/masterProcess.c -lm -o bin/masterProcess.exe
 gcc src/userConsole.c -lm -o bin/userConsole.exe
