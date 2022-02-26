@@ -1,8 +1,8 @@
 #!/bin/bash
-rm masterProcess.exe
-rm -r logs
+rm bin/masterProcess.exe
+rm -r /logs
 
-gcc masterProcess.c -o masterProcess.exe
-./masterProcess.exe
+gcc src/masterProcess.c -o bin/masterProcess.exe
+./bin/masterProcess.exe
 
 echo return value: $?

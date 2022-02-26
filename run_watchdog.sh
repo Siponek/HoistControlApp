@@ -1,7 +1,7 @@
 #!/bin/bash
-rm watchdog.exe
+rm bin/watchdog.exe
 
-gcc watchdog.c -o watchdog.exe
-./watchdog.exe
+gcc src/watchdog.c -o bin/watchdog.exe
+./bin/watchdog.exe
 
 echo return value: $?

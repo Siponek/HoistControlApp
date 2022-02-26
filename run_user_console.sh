@@ -1,7 +1,7 @@
 #!/bin/bash
-rm userConsole.exe
+rm bin/userConsole.exe
 
-gcc userConsole.c -o userConsole.exe
-./userConsole.exe
+gcc src/userConsole.c -o bin/userConsole.exe
+./bin/userConsole.exe
 
 echo return value: $?
