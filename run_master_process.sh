@@ -1,7 +1,7 @@
 #!/bin/bash
-rm bin/masterProcess.exe
-rm -r /logs
-
+rm -rf bin/masterProcess.exe
+# rm -rf /logs
+mkdir bin
 gcc src/masterProcess.c -o bin/masterProcess.exe
 ./bin/masterProcess.exe
 

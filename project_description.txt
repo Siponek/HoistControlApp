@@ -1,0 +1,53 @@
+# HoistControl_app
+Hoist control simulator
+//Unmoutn&mount for fifo</br>
+sudo umount /mnt/c </br>
+sudo mount -t drvfs C: /mnt/c -o metadata
+
+Advanced and Robot Programming<br>
+Authors: Szymon Zinkowicz, Maciej Bogdalski<br>
+
+Hoist control simulator
+A simple simulator written in C language using system calls. All goes together as 3 (and 2 child processes) and communicate via IPC (pipes, signals) to simulate a hoist control with error readings.
+
+
+## Running
+Since this is C, it needs a compiler (gcc/g++)
+```
+sudo apt-get install gcc
+```
+
+Program works on multiple terminal windows therefore a terminal Emulator
+```
+sudo apt-get install konsole
+```
+
+The [install.sh] script requires executable priviledges
+```
+sudo chmod +x install.sh
+./install.sh
+```
+
+The [install.sh] script will create another script [run.sh]
+```
+./run.sh
+```
+
+## Architecture
+Once [run.sh] is executed, 5 processes will show up:
+1. watchdog
+2. masterProcess
+2a. motorx (child)
+2b. motorz (child)
+3. userConsole
+
+
+### 1. Watchdog
+A module that resets the other processes in case they do not send a control signal long enough.
+
+### 2. masterProcess
+The commands are sent via pipes. masterProcess splits into three processes - master, motorx, motorz. Only master process is accessable and it is the UI that user can interact with.</br>
+The interaction requires keys: w,s,a,d,r.
+
+### 3. userConsole
+This is the UI for the user to see current state of the hoist.

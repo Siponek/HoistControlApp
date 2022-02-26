@@ -1,4 +1,4 @@
-#include "functionsFile.h"
+#include "../libs/functionsFile.h"
 
 int openPipeUserMaster(const char *path);
 void signalHandlerForRESET(int signum);

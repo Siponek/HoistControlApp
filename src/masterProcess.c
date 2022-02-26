@@ -10,7 +10,7 @@ int fileDescriptorX;
 int fileDescriptorZ;
 extern float resetSpeed;
 
-#include "functionsFile.h"
+#include "../libs/functionsFile.h"
 
 pid_t createMotorProcess(char axis);
 void sigHandlerReset(int sig);
@@ -70,7 +70,7 @@ int main(int argc, char const *argv[])
     {
         fflush(stdin);
         yellow();
-        printf("W - Moving in Z axis UP\nS - Moving in Z axis DOWN\nA - Moving in X axis LEFT\nD - moving in X axis RIGHT\n");
+        printf("W - Moving in Z axis UP\nS - Moving in Z axis DOWN\nA - Moving in X axis LEFT\nD - moving in X axis RIGHT\n r - reseting drive possition\n");
         reset();
         printf("Parent: Waiting for input\n");
         userAction = getchar();
@@ -82,38 +82,38 @@ int main(int argc, char const *argv[])
         // user intercation with masterProcess
         if (userAction == (int)'a')
         {
-            printf("You typed in %c !\n", userAction);
+            printf("You picked:  %c !\n", userAction);
             sendToMotor(fileDescriptorX, (float)-10);
             logWrite(fileDescriptorLog, "Master: X++\n");
         }
         else if (userAction == (int)'d')
         {
-            printf("You typed in %c !\n", userAction);
+            printf("You picked:  %c !\n", userAction);
             sendToMotor(fileDescriptorX, (float)10);
             logWrite(fileDescriptorLog, "Master: X--\n");
         }
         else if (userAction == (int)'w')
         {
-            printf("You typed in %c !\n", userAction);
+            printf("You picked:  %c !\n", userAction);
             sendToMotor(fileDescriptorZ, (float)20);
             logWrite(fileDescriptorLog, "Master: Z++\n");
         }
         else if (userAction == (int)'s')
         {
-            printf("You typed in %c !\n", userAction);
+            printf("You picked:  %c !\n", userAction);
             sendToMotor(fileDescriptorZ, (float)-20);
             logWrite(fileDescriptorLog, "Master: Z--\n");
         }
         else if (userAction == (int)'r')
         {
             red();
-            printf("You typed in %c , THE RESET BUTTON!\n", userAction);
+            printf("You picked:  %c , THE RESET BUTTON!\n", userAction);
             reset();
 
             // sendToMotor(fileDescriptorZ, (float)0);
             // sendToMotor(fileDescriptorX, (float)0);
-            kill(pidMotorZ, SIGUSR1);
-            kill(pidMotorX, SIGUSR1);
+            // kill(pidMotorZ, SIGUSR1);
+            // kill(pidMotorX, SIGUSR1);
 
             logWrite(fileDescriptorLog, "Master: RESET BUTTON\n");
         }
@@ -203,7 +203,7 @@ pid_t createMotorProcess(char axis)
 
 void sigHandlerReset(int sig)
 {
-    if (sig = SIGUSR1)
+    if (sig == SIGUSR1)
     { // Return type of the handler function should be void
         printf("\nMotors registered a RESET button\n");
 
@@ -263,7 +263,7 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
     float speed;
     while (1)
     {
-        signal(SIGUSR1, sigHandlerReset); // TODO
+        // signal(SIGUSR1, sigHandlerReset); // TODO
 
         //*A random error with motor process.
         currentError = ((float)rand() / (RAND_MAX)) / 10;
@@ -300,7 +300,8 @@ void motorProcess(char axis, int fileDescriptorErrorLog, int fileDescriptorLog, 
         if (currentState == resetSpeed)
         {
             sendToMotor(fileDescriptorConsole, currentState);
-            kill(watchdogPID, SIGUSR1);
+            //? Signals bugging the program
+            // kill(watchdogPID, SIGUSR1);
             logWrite(fileDescriptorLog, "Child: Sending signal to watchdog\n");
         }
         usleep(400000);
