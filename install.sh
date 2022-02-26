@@ -4,11 +4,11 @@ echo "Reminder: unziping the archive ANYWHERE where this script is running else 
 if [ -z "$1" ]
     then
     echo "No argument supplied"
-    unzip {sources.zip}
+    unzip sources.zip
 
     else
     echo "Given <pathname>: $1";
-    unzip -d $1 {sources.zip}
+    unzip -d $1 sources.zip
 fi
 
 echo "Instalation in progess..."
@@ -28,7 +28,6 @@ echo "konsole  -e \"./bin/masterProcess.exe; bash\"" >> run.sh
 echo "konsole  -e \"./bin/userConsole.exe; bash\"" >> run.sh
 echo "konsole  -e \"./bin/watchdog.exe; bash\"" >> run.sh
 
-echo "gnome-terminal -- sh -c \"./bin/inspector; bash\"" >> run.sh
 echo "echo return value: \$?" >> run.sh
 
 # ?
