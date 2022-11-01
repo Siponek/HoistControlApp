@@ -1,7 +1,7 @@
 # HoistControlApp
 
 ## Hoist control simulator
-This is a simulation of real-life engine-driven hoist. Main goal is to steer the hoist in X and Z axis with arrow keys. This program simulates user interface and master engine using POSIX techniques such as forks, pipes and signals for inter-process communication in Linux. Also comes with a watchdog that checks heartbeat of other processes and restarts them when necessary.
+This is a simulation of real-life engine-driven hoist. Main goal is to steer the hoist in X and Z axis with WSADR keys. This program simulates user interface and master engine using POSIX techniques such as forks, pipes and signals for inter-process communication in Linux. Also comes with a watchdog that checks heartbeat of other processes and restarts them when necessary.
 ## Instalation
 (Final attempt branch)
 Run **install.sh** with optional path where to unzip source files. Beware that script does not check if path is correct.
