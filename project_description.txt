@@ -5,7 +5,8 @@ sudo umount /mnt/c </br>
 sudo mount -t drvfs C: /mnt/c -o metadata
 
 Advanced and Robot Programming<br>
-Authors: Szymon Zinkowicz, Maciej Bogdalski<br>
+Authors: Szymon Zinkowicz<br>
+Additional review: Marcin Hradowicz
 
 Hoist control simulator
 A simple simulator written in C language using system calls. All goes together as 3 (and 2 child processes) and communicate via IPC (pipes, signals) to simulate a hoist control with error readings.
